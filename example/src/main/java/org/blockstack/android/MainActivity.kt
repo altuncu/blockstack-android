@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.coroutines.experimental.android.UI
@@ -48,7 +49,7 @@ class MainActivity : AppCompatActivity() {
                 onLoadedCallback = {
                     // Wait until this callback fires before using any of the
                     // BlockstackSession API methods
-                    
+
                     signInButton.isEnabled = true
                 })
 
@@ -177,20 +178,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleAuthResponse(intent: Intent) {
-        val response = intent.dataString
-        Log.d(TAG, "response ${response}")
-        if (response != null) {
-            val authResponseTokens = response.split(':')
-
-            if (authResponseTokens.size > 1) {
-                val authResponse = authResponseTokens[1]
-                Log.d(TAG, "authResponse: ${authResponse}")
-                blockstackSession().handlePendingSignIn(authResponse, { userData ->
-                    Log.d(TAG, "signed in!")
+        Log.d(TAG, "response ${intent.dataString}")
+        val authResponse = intent.data?.schemeSpecificPart
+        Log.d(TAG, "response ${intent.dataString} $authResponse")
+        if (authResponse != null) {
+            blockstackSession().verifyAuthResponse(authResponse) { valid ->
+                if (valid) {
                     runOnUiThread {
-                        onSignIn(userData)
+                        blockstackSession().loadUserData { userData ->
+                            if (userData != null) {
+                                runOnUiThread {
+                                    onSignIn(userData)
+                                }
+                            }
+                        }
                     }
-                })
+                } else {
+                    Toast.makeText(this, "sign in failed", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

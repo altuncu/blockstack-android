@@ -26,10 +26,11 @@ class BlockstackSession(context: Context,
 
     private var userData: JSONObject? = null
     private var signInCallback: ((UserData) -> Unit)? = null
+    private var verifyAuthResponseCallback: ((Boolean) -> Unit)? = null
     private val getFileCallbacks = HashMap<String, ((Any) -> Unit)>()
     private val putFileCallbacks = HashMap<String, ((String) -> Unit)>()
-
-
+    private val nameLookupUrl: String = "https://core.blockstack.org/v1/names"
+    
     init {
         Log.d(TAG, context.toString())
     }
@@ -202,6 +203,15 @@ class BlockstackSession(context: Context,
 
     }
 
+    fun verifyAuthResponse(authResponseToken: String, callback:(Boolean) -> Unit) {
+        val javascript = "verifyAuthResponse('$authResponseToken', '$nameLookupUrl')"
+        verifyAuthResponseCallback = callback
+        webView.evaluateJavascript(javascript) {_ ->
+            // no op
+        }
+    }
+
+
     fun encryptContent(plainContent: Any, options: CryptoOptions, callback: (CipherObject?) -> Unit) {
         ensureLoaded()
 
@@ -239,7 +249,7 @@ class BlockstackSession(context: Context,
 
         val isBinary = cipherObject is ByteArray
 
-        var wasString:Boolean
+        val wasString:Boolean
 
         val javascript = if (isBinary) {
             val cipherTextString = Base64.encodeToString(cipherObject as ByteArray, Base64.NO_WRAP)
@@ -310,6 +320,13 @@ class BlockstackSession(context: Context,
 
             session.putFileCallbacks[uniqueIdentifier]?.invoke(readURL)
             session.putFileCallbacks.remove(uniqueIdentifier)
+        }
+
+        @JavascriptInterface
+        fun verifyAuthResponseResult(valid:Boolean) {
+            if (session.verifyAuthResponseCallback != null) {
+                session.verifyAuthResponseCallback!!.invoke(valid)
+            }
         }
 
     }

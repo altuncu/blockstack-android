@@ -20,6 +20,15 @@ function handlePendingSignIn(authResponseToken) {
   })
 }
 
+function verifyAuthResponse(authResponseToken, nameLookupURL) {
+  console.log('verifyAuthResponse')
+  console.log(authResponseToken)
+  blockstack.verifyAuthResponse(authResponseToken, nameLookupURL)
+  .then(function(valid) {
+    android.verifyAuthResponseResult(valid)
+  })
+}
+
 function loadUserData() {
   return blockstack.loadUserData()
 }
