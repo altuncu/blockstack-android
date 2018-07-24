@@ -14,10 +14,8 @@ import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.async
 import org.blockstack.android.sdk.BlockstackSession
-import org.blockstack.android.sdk.Scope
 import org.blockstack.android.sdk.UserData
 import org.jetbrains.anko.coroutines.experimental.bg
-import java.net.URI
 import java.net.URL
 
 
@@ -60,7 +58,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSignIn(userData: UserData) {
-        userDataTextView.text = "Signed in as ${userData.did}"
+        userDataTextView.text = "Signed in as ${userData.decentralizedID}"
         showUserAvatar(userData.avatarImage)
     }
 
@@ -99,6 +97,10 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(this, AccountActivity::class.java))
     }
 
+    private fun navigateToCipher() {
+        startActivity(Intent(this, CipherActivity::class.java))
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
@@ -112,6 +114,10 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_account -> {
                 navigateToAccount()
+                true
+            }
+            R.id.action_cipher -> {
+                navigateToCipher()
                 true
             }
             else -> super.onOptionsItemSelected(item)

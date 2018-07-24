@@ -13,7 +13,7 @@ function redirectToSignIn(appDomain, redirectURI, manifestURI, scopes) {
 }
 
 function handlePendingSignIn(authResponseToken) {
-  blockstack.handlePendingSignIn(authResponseToken)
+  blockstack.handlePendingSignIn('https://core.blockstack.org/v1/names/', authResponseToken)
   .then(function(userData) {
     var userDataString = JSON.stringify(userData)
     android.signInSuccess(userDataString)
@@ -30,6 +30,13 @@ function isUserSignedIn() {
 
 function signUserOut()  {
   return blockstack.signUserOut()
+}
+
+function lookupProfile(username, zoneLookupFileURL) {
+  blockstack.lookupProfile(username, zoneLookupFileURL)
+  .then(function(userData) {
+      android.lookupProfileResult(username, JSON.stringify(userData))
+  })
 }
 
 function getFile(path, options, uniqueIdentifier) {
@@ -63,6 +70,31 @@ function putFile(path, content, options, uniqueIdentifier, isBinary) {
     console.log(result)
     android.putFileResult(result, uniqueIdentifier)
   })
+}
+
+function encryptContent(content, options, isBinary) {
+  console.log('encryptContent')
+  if (isBinary) {
+    content = Base64.decode(content)
+  }
+
+  encryption = blockstack.encryptContent(content, options)
+  return JSON.parse(encryption)
+}
+
+function decryptContent(cipher, options, isBinary) {
+  console.log('decryptContent')
+  if (isBinary) {
+    cipher = Base64.decode(cipher)
+  }
+
+  var decrypted = blockstack.decryptContent(cipher, options)
+  if (typeof decrypted === "string") {
+    console.log(decrypted)
+    return decrypted
+  } else {
+    return Base64.encode(decrypted)
+  }
 }
 </script>
 </head>
