@@ -2,6 +2,7 @@ package org.blockstack.android
 
 import android.app.IntentService
 import android.content.Intent
+import android.os.Handler
 import android.support.v4.app.NotificationCompat
 import android.support.v4.app.NotificationManagerCompat
 import android.util.Log
@@ -12,7 +13,12 @@ class BlockstackService : IntentService("BlockstackExample") {
     private val TAG: String = "BlockstackService"
     private val CHANNEL_ID = "warnings"
     private lateinit var _blockstackSession: BlockstackSession
+    private lateinit var handler: Handler
 
+    override fun onCreate() {
+        super.onCreate()
+        handler = Handler()
+    }
     override fun onHandleIntent(intent: Intent?) {
 
         /* this will throw an exception
@@ -22,9 +28,15 @@ class BlockstackService : IntentService("BlockstackExample") {
             at com.android.webview.chromium.WebViewChromium.init(PG:40)
             at android.webkit.WebView.<init>(WebView.java:648)
          */
-        _blockstackSession = BlockstackSession(this, defaultConfig) {
-            putFileFromService()
+        runOnUIThread {
+            _blockstackSession = BlockstackSession(this, defaultConfig) {
+                putFileFromService()
+            }
         }
+    }
+
+    fun runOnUIThread(runnable:() -> Unit) {
+        handler.post(runnable)
     }
 
     private fun putFileFromService() {
@@ -32,6 +44,7 @@ class BlockstackService : IntentService("BlockstackExample") {
         _blockstackSession.isUserSignedIn { signedIn ->
             if (signedIn) {
                 val notif = NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setSmallIcon(org.blockstack.android.sdk.R.drawable.org_blockstack_logo)
                         .setContentTitle("Blockstack Service")
                         .setContentText("Uploading file")
                         .setProgress(100, 50, true)
@@ -42,6 +55,7 @@ class BlockstackService : IntentService("BlockstackExample") {
                 _blockstackSession.putFile("fromService.txt", "Hello Android from Service", PutFileOptions()) { readURL: String ->
                     Log.d(TAG, "File stored at: ${readURL}")
                     val notif = NotificationCompat.Builder(this, CHANNEL_ID)
+                            .setSmallIcon(org.blockstack.android.sdk.R.drawable.org_blockstack_logo)
                             .setContentTitle("Blockstack Service")
                             .setContentText("File stored at: ${readURL}")
                             .build()
