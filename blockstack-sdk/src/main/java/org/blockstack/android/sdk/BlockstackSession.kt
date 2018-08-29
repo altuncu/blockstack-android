@@ -5,10 +5,14 @@ import android.net.Uri
 import android.support.customtabs.CustomTabsIntent
 import android.util.Base64
 import android.util.Log
-import android.webkit.*
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
 import org.json.JSONObject
 import java.net.URL
 import java.util.*
+
 
 private val AUTH_URL_STRING = "file:///android_res/raw/webview.html"
 private val HOSTED_BROWSER_URL_BASE = "https://browser.blockstack.org"
@@ -127,6 +131,7 @@ class BlockstackSession(context: Context,
         webView.evaluateJavascript(javascript, { _: String ->
             // no op
         })
+
     }
 
     /**
@@ -445,9 +450,15 @@ private class BlockstackWebViewClient(val context: Context,
 
         val customTabsIntent = CustomTabsIntent.Builder().build()
         // on redirect load the following with
-        // TODO: handle lack of custom tabs support
-        customTabsIntent.launchUrl(context,
-                Uri.parse("${HOSTED_BROWSER_URL_BASE}/auth?authRequest=${authRequestToken}"))
+        val customTabsApps = context.getPackageManager().queryIntentActivities(customTabsIntent.intent, 0)
+
+        if (customTabsApps.size > 0) {
+            customTabsIntent.launchUrl(context,
+                    Uri.parse("${HOSTED_BROWSER_URL_BASE}/auth?authRequest=${authRequestToken}"))
+        } else {
+            // custom tabs not installed.
+            Toast.makeText(context, "Custom Tab Support required", Toast.LENGTH_LONG).show()
+        }
         return true
     }
 }
