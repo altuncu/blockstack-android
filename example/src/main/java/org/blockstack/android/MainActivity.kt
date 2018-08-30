@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
@@ -37,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         getStringFileButton.isEnabled = false
         putStringFileButton.isEnabled = false
 
-        val config = java.net.URI("https://flamboyant-darwin-d11c17.netlify.com").run {
+        val config = java.net.URI("https://friedger.de").run {
             org.blockstack.android.sdk.BlockstackConfig(
                     this,
                     java.net.URI("${this}/redirect"),
@@ -240,25 +241,24 @@ class MainActivity : AppCompatActivity() {
         val response = intent.dataString
         Log.d(TAG, "response ${response}")
         if (response != null) {
-            val authResponseTokens = response.split(':')
+            val authResponse = getAuthToken(response)
 
-            if (authResponseTokens.size > 1) {
-                val authResponse = authResponseTokens[1]
-                Log.d(TAG, "authResponse: ${authResponse}")
-                blockstackSession().handlePendingSignIn(authResponse, { userDataResult ->
-                    if (userDataResult.hasValue) {
-                        val userData = userDataResult.value!!
-                        Log.d(TAG, "signed in!")
-                        runOnUiThread {
-                            onSignIn(userData)
-                        }
-                    } else {
-                        Toast.makeText(this, "error: " + userDataResult.error, Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "authResponse: ${authResponse}")
+            blockstackSession().handlePendingSignIn(authResponse, { userDataResult ->
+                if (userDataResult.hasValue) {
+                    val userData = userDataResult.value!!
+                    Log.d(TAG, "signed in!")
+                    runOnUiThread {
+                        onSignIn(userData)
                     }
-                })
-            }
+                } else {
+                    Toast.makeText(this, "error: " + userDataResult.error, Toast.LENGTH_SHORT).show()
+                }
+            })
         }
     }
+
+    private fun getAuthToken(response: String) = Uri.parse(response).getQueryParameter("authResponse")
 
     fun blockstackSession(): BlockstackSession {
         val session = _blockstackSession

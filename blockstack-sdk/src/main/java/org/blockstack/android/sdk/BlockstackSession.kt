@@ -9,6 +9,13 @@ import android.webkit.*
 import org.json.JSONObject
 import java.net.URL
 import java.util.*
+import android.content.ComponentName
+import android.os.Bundle
+import android.support.customtabs.CustomTabsCallback
+import android.support.customtabs.CustomTabsClient
+import android.support.customtabs.CustomTabsServiceConnection
+
+
 
 private val AUTH_URL_STRING = "file:///android_res/raw/webview.html"
 private val HOSTED_BROWSER_URL_BASE = "https://browser.blockstack.org"
@@ -54,17 +61,20 @@ class BlockstackSession(context: Context,
     }
 
     private val webView = WebView(context)
+    private val connection = BlockstackCustomTabsServiceConnection()
 
     init {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.userAgentString = "blockstack-sdk"
-        webView.webViewClient = BlockstackWebViewClient(context) {
+        webView.webViewClient = BlockstackWebViewClient(context, connection) {
             this.loaded = true
             onLoadedCallback()
         }
         webView.addJavascriptInterface(JavascriptInterfaceObject(this), "android")
         webView.loadUrl(AUTH_URL_STRING)
+
+        //CustomTabsClient.bindCustomTabsService(context, "org.mozilla.fennec_aurora", connection);
     }
 
 
@@ -424,7 +434,21 @@ class BlockstackSession(context: Context,
 
 }
 
+private class BlockstackCustomTabsServiceConnection(): CustomTabsServiceConnection() {
+    var mCustomTabsClient: CustomTabsClient? = null
+
+    override fun onCustomTabsServiceConnected(name: ComponentName, client: CustomTabsClient) {
+        mCustomTabsClient = client
+    }
+
+    override fun onServiceDisconnected(name: ComponentName) {
+
+    }
+}
+
+
 private class BlockstackWebViewClient(val context: Context,
+                                      val connection: BlockstackCustomTabsServiceConnection,
                                       val onLoadedCallback: () -> Unit) : WebViewClient() {
     private val TAG = BlockstackWebViewClient::class.qualifiedName
 
@@ -443,7 +467,20 @@ private class BlockstackWebViewClient(val context: Context,
         val authRequestToken = url.split(':')[1]
         Log.d(TAG, authRequestToken)
 
-        val customTabsIntent = CustomTabsIntent.Builder().build()
+
+        val session = if (connection.mCustomTabsClient != null) {
+            connection.mCustomTabsClient!!.newSession(object : CustomTabsCallback() {
+                override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
+                    if (navigationEvent == CustomTabsCallback.NAVIGATION_STARTED) {
+                        Log.d(TAG, "navEvent: $navigationEvent")
+                    }
+                }
+            })
+        } else {
+            null
+        }
+
+        val customTabsIntent = CustomTabsIntent.Builder(session).build()
         // on redirect load the following with
         // TODO: handle lack of custom tabs support
         customTabsIntent.launchUrl(context,
