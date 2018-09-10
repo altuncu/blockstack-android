@@ -8,6 +8,7 @@ import com.squareup.duktape.Duktape
 import org.json.JSONObject
 import java.util.*
 
+
 private val BLOCKSTACK_JS_URL_STRING = "file:///android_res/raw/blockstack.js"
 private val HOSTED_BROWSER_URL_BASE = "https://browser.blockstack.org"
 
@@ -45,7 +46,12 @@ class BlockstackSession(context: Context, private val config: BlockstackConfig,
 
 
     private val duktape = Duktape.create()
-    private val blockstack: Blockstack
+    private var blockstack: Blockstack = object : Blockstack {
+        override fun makeAuthRequest(): String {
+            return "abc"
+        }
+
+    }
 
     init {
         duktape.set("android", JavaScriptInterface::class.java,
@@ -56,7 +62,7 @@ class BlockstackSession(context: Context, private val config: BlockstackConfig,
     }
 
     internal interface Blockstack {
-        fun makeAuthRequest(transitPrivateKey: String, redirectURI: String, manifestURI: String, scopes: Array<String>, appDomain: String): String
+        fun makeAuthRequest(): String
     }
 
     /**
@@ -69,7 +75,7 @@ class BlockstackSession(context: Context, private val config: BlockstackConfig,
      * @param callback called with the auth response as string in json format
      */
     fun makeAuthResponse(privateKey: String): String {
-        val authResponse = blockstack.makeAuthRequest(privateKey, "", "", arrayOf(), "");
+        val authResponse = blockstack.makeAuthRequest();
         return authResponse
     }
 
