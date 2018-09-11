@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private val TAG = MainActivity::class.java.simpleName
 
     private var _blockstackSession: BlockstackSession? = null
+    private var userData: UserData? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private fun onSignIn(userData: UserData) {
         userDataTextView.text = "Signed in as ${userData.profile?.name} (${userData.decentralizedID}) with ${userData.profile?.email}"
         showUserAvatar(userData.profile?.avatarImage)
+        this.userData = userData
     }
 
     private fun showUserAvatar(avatarImage: String?) {
@@ -102,7 +104,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navigateToCipher() {
-        startActivity(Intent(this, CipherActivity::class.java))
+        startActivity(Intent(this, CipherActivity::class.java).putExtra("json", this.userData?.json.toString()))
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
