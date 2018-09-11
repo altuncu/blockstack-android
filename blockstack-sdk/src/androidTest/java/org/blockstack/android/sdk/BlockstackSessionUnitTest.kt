@@ -21,7 +21,7 @@ class BlockstackSessionUnitTest {
     @Test
     fun testMakeAuthResponse() {
         val session = BlockstackSession(rule.activity, "https://flamboyant-darwin-d11c17.netlify.com".toBlockstackConfig(emptyArray()))
-        val token = session.makeAuthResponse(PRIVATE_KEY)
+        val token = session.newSession("https://flamboyant-darwin-d11c17.netlify.com")
         assertThat(token, `is`(notNullValue()))
     }
 }

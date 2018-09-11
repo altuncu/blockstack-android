@@ -46,36 +46,44 @@ class BlockstackSession(context: Context, private val config: BlockstackConfig,
 
 
     private val duktape = Duktape.create()
-    private var blockstack: Blockstack = object : Blockstack {
-        override fun makeAuthRequest(): String {
-            return "abc"
-        }
-
-    }
+    private var blockstack: Blockstack? = null
 
     init {
         duktape.set("android", JavaScriptInterface::class.java,
                 JavascriptInterfaceObject(this))
         duktape.evaluate(context.resources.openRawResource(R.raw.blockstack).bufferedReader().use { it.readText() },
                 "error.txt")
+        duktape.evaluate(context.resources.openRawResource(R.raw.blockstack_android).bufferedReader().use { it.readText() },
+                "error.txt")
         blockstack = duktape.get("blockstack", Blockstack::class.java)
+        duktape.set("console", Console::class.java, object:Console {
+            override fun error(msg: String) {
+                Log.e(TAG, msg)
+            }
+
+            override fun warn(msg: String) {
+                Log.w(TAG, msg)
+            }
+
+            override fun log(msg: String) {
+                Log.i(TAG, msg)
+            }
+
+        })
+    }
+
+    internal interface Console {
+        fun error(msg: String)
+        fun warn(msg:String)
+        fun log(msg:String)
     }
 
     internal interface Blockstack {
-        fun makeAuthRequest(): String
+        fun newUserSession(appDomain:String):String
     }
 
-    /**
-     * Creates an auth response using the given private key. Usually not needed.
-     *
-     * This method creates an auth response token from the given private key. It
-     * is currently used for integration tests.
-     *
-     * @param privateKey the private key of the user that wants to sign in
-     * @param callback called with the auth response as string in json format
-     */
-    fun makeAuthResponse(privateKey: String): String {
-        val authResponse = blockstack.makeAuthRequest();
+    fun newSession(appDomain: String): String {
+        val authResponse = blockstack!!.newUserSession(appDomain)
         return authResponse
     }
 
