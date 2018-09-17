@@ -38,6 +38,7 @@ dokka {
 
 dependencies {
     implementation 'com.squareup.duktape:duktape-android:1.3.0'
+    implementation "org.jetbrains.anko:anko-coroutines:$anko_version"
     implementation 'com.android.support:customtabs:27.1.1'
     implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'com.squareup.okhttp3:okhttp:3.11.0'

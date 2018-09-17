@@ -3,12 +3,6 @@ var userSession = {}
 blockstack.newUserSession=function(domainName) {
    const appConfig = new blockstack.AppConfig(domainName);
    userSession = new blockstack.UserSession({ appConfig:appConfig, sessionStore:androidSessionStore });
-   console.log("before fetch: " + fetch)
-   var p = fetch("https://google.com")
-   console.log("after fetch: " + p)
-   p.then(function(result){
-     console.log("google + " + result);
-   })
 
    return JSON.stringify(userSession);
 }
@@ -35,7 +29,14 @@ blockstack.getFile = function(path,options, uniqueIdentifier) {
 }
 
 blockstack.putFile = function(path, contentString, options, uniqueIdentifier, binary) {
-    return userSession.putFile(path, contentString, JSON.parse(options));
+  userSession.putFile(path, contentString, JSON.parse(options))
+    .then(function(result) {
+      console.log("put result:" + result)
+      android.putFileResult(result, uniqueIdentifier)
+    }, function(error) {
+    console.log("put failure:" + error)
+      android.putFileFailure(error.toString(), uniqueIdentifier)
+    })
 }
 
 
@@ -47,21 +48,112 @@ blockstack.decryptContent = function(cipherTextString, options, binary) {
     return userSession.decryptContent(cipherTextString, JSON.parse(options))
 }
 
+
+/**
+ * Response class
+ *
+ * @param   Object  opts  Response options
+ * @return  Void
+ */
+
+function Response(r) {
+  this.status = r.status
+  this.body = r.body
+  this.ok = this.status >= 200 && this.status < 300;
+}
+
+/**
+ * Decode response as json
+ *
+ * @return  Promise
+ */
+Response.prototype.json = function() {
+
+  return this.text().then(function(text) {
+    return JSON.parse(text);
+  });
+
+}
+
+/**
+ * Decode response body as text
+ *
+ * @return  Promise
+ */
+Response.prototype.text = function() {
+
+  var _this = this;
+
+  return new blockstack.Promise(function(resolve, reject) {
+    resolve(_this.body);
+  });
+
+}
+
+
 var fetchPromises = {}
 fetch = function(url, options){
-  console.log("fetch 2:" + blockstack.Bluebird)
-  console.log("fetch 2:" + blockstack.Promise)
-  var promise = new blockstack.Bluebird(function(resolve, reject) {
+  var promise = new blockstack.Promise(function(resolve, reject) {
     console.log('fetch ' + url)
     fetchPromises.resolve = resolve
-    android.fetch(url, JSON.stringify(options))
+    if (options) {
+        android.fetch2(url, JSON.stringify(options))
+    } else {
+        android.fetch2(url, "{}")
+    }
   })
+  console.log("after promise created")
   return promise
 }
 
 blockstack.fetchResolve = function(url, response) {
   console.log('resolved ' + url)
-  fetchPromises.resolve(JSON.parse(reponse))
+  console.log('response ' + response)
+  try {
+    var resp = new Response(JSON.parse(response))
+    console.log('resp ' + resp)
+    var resolved = fetchPromises.resolve(resp)
+    console.log('result ' + resolved)
+    fakeEventLoop()
+  } catch (e) {
+  console.log("error")
+   console.log(e)
+  }
+  return "success"
 }
 
+blockstack.timeout = function() {
+  fakeEventLoop()
+}
 
+var fakeEventLoop;
+var setTimeout;
+var clearTimeout;
+
+(function () {
+    var timers = [];
+
+    setTimeout = function (fn, timeout) {
+        console.log("setTimeout")
+        timers.push(fn);
+    };
+
+    clearTimeout = function () {};
+
+    fakeEventLoop = function () {
+        console.log('fake eventloop, run timers');
+        while (timers.length > 0) {
+            var fn = timers.shift();
+            console.log('run timer');
+            fn();
+        }
+        console.log('fake eventloop exiting, no more timers');
+    };
+})();
+
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}

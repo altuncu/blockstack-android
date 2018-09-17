@@ -50,11 +50,13 @@ class CipherActivity : AppCompatActivity() {
     }
 
     private fun putFileGetFile() {
-        val result = blockstackSession().putFile("try.txt", "Hello from Blockstack2", PutFileOptions(encrypt = false))
-        Log.d(TAG, "result: " + result)
+        blockstackSession().putFile("try.txt", "Hello from Blockstack2", PutFileOptions(encrypt = false)) {
+            Log.d(TAG, "result: " + it.value)
+            blockstackSession().getFile("try.txt", GetFileOptions(false)) {
+                Log.d(TAG, "content " + it.value)
+            }
 
-        val content = blockstackSession().getFile("try.txt", GetFileOptions(false))
-        Log.d(TAG, "content " + content)
+        }
 
     }
 

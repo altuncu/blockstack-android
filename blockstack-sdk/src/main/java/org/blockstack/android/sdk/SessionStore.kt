@@ -7,7 +7,7 @@ import org.json.JSONObject
 val BLOCKSTACK_SESSION = "blockstack_session"
 
 private val EMPTY_DATA = "{}"
-private val TAG = SessionStore::class.java.simpleName
+val TAG = SessionStore::class.java.simpleName
 
 class SessionStore(private val prefs: SharedPreferences) {
     var sessionDataObject = SessionData(JSONObject(prefs.getString(BLOCKSTACK_SESSION, EMPTY_DATA)))

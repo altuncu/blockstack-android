@@ -10,6 +10,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.Response
+import org.jetbrains.anko.coroutines.experimental.bg
 import org.json.JSONObject
 import java.net.URL
 import java.util.*
@@ -70,6 +71,10 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
                 Log.i(TAG, msg)
             }
 
+            override fun debug(msg: String) {
+                Log.d(TAG, msg)
+            }
+
         })
         duktape.evaluate(context.resources.openRawResource(R.raw.blockstack).bufferedReader().use { it.readText() },
                 "error.txt")
@@ -85,6 +90,7 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
     internal interface Console {
         fun error(msg: String)
         fun warn(msg: String)
+        fun debug(msg: String)
         fun log(msg: String)
     }
 
@@ -94,10 +100,10 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
         fun signIn(privateAppKey: String, privateAppKey1: String, identityAddress: String, hubUrl: String, userDataString: String)
         fun signUserOut()
         fun getFile(path: String, options: String, uniqueIdentifier: String)
-        fun putFile(path: String, contentString: String?, options: String, uniqueIdentifier: String, binary: Boolean): String
+        fun putFile(path: String, contentString: String?, options: String, uniqueIdentifier: String, binary: Boolean)
         fun encryptContent(contentString: String?, options: String, binary: Boolean): String
         fun decryptContent(cipherTextString: String?, options: String, binary: Boolean): String
-        fun fetchResolve(url:String, response:String)
+        fun fetchResolve(url: String, response: String)
     }
 
     /**
@@ -156,12 +162,12 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
      * @property callback a function that is called with the file contents. It is not called on the
      * UI thread so you should execute any UI interactions in a `runOnUIThread` block
      */
-    fun getFile(path: String, options: GetFileOptions) {
+    fun getFile(path: String, options: GetFileOptions, callback: (Result<Any>) -> Unit) {
         Log.d(TAG, "getFile: path: ${path} options: ${options}")
 
         ensureLoaded()
-
-        return blockstack.getFile(path, options.toJSON().toString(), "")
+        val uniqueIdentifier = addGetFileCallback(callback)
+        return blockstack.getFile(path, options.toJSON().toString(), uniqueIdentifier)
     }
 
     /**
@@ -175,7 +181,7 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
      * which you can read the file that was just put. It is not called on the UI thread so you should
      * execute any UI interactions in a `runOnUIThread` block
      */
-    fun putFile(path: String, content: Any, options: PutFileOptions): String {
+    fun putFile(path: String, content: Any, options: PutFileOptions, callback: (Result<String>) -> Unit) {
         Log.d(TAG, "putFile: path: ${path} options: ${options}")
 
         ensureLoaded()
@@ -186,13 +192,13 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
         }
 
         val isBinary = content is ByteArray
-
+        val uniqueIdentifier = addPutFileCallback(callback)
 
         return if (isBinary) {
             val contentString = Base64.encodeToString(content as ByteArray, Base64.NO_WRAP)
-            blockstack.putFile(path, contentString, options.toJSON().toString(), "", true)
+            blockstack.putFile(path, contentString, options.toJSON().toString(), uniqueIdentifier, true)
         } else {
-            blockstack.putFile(path, content as String, options.toJSON().toString(), "", false)
+            blockstack.putFile(path, content as String, options.toJSON().toString(), uniqueIdentifier, false)
         }
 
     }
@@ -300,7 +306,7 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
         fun getSessionData(): String
         fun setSessionData(sessionData: String)
         fun deleteSessionData()
-        fun fetch(url: String, options: String)
+        fun fetch2(url: String, options: String)
     }
 
     private class JavascriptInterface2Object(private val session: BlockstackSession2) : JavaScriptInterface2 {
@@ -367,7 +373,7 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
         private val httpClient = OkHttpClient()
 
         @JavascriptInterface
-        override fun fetch(url: String, optionsString: String) {
+        override fun fetch2(url: String, optionsString: String) {
             val options = JSONObject(optionsString)
 
             val builder = Request.Builder()
@@ -387,8 +393,18 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
                     builder.header(key, headers.getString(key))
                 }
             }
-            val response = httpClient.newCall(builder.build()).execute()
-            session.blockstack.fetchResolve(url, response.toJSONString())
+
+
+            bg {
+                try {
+                    val response = httpClient.newCall(builder.build()).execute()
+                    Log.d(TAG, "response " + response)
+                    session.blockstack.fetchResolve(url, response.toJSONString())
+                } catch (e:Exception) {
+                    Log.e(TAG, e.message, e)
+                }
+            }
+
         }
 
     }
@@ -396,8 +412,7 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
 
 fun Response.toJSONString(): String {
     return JSONObject()
-            .put("ok", isSuccessful)
-            .put("code", code())
-            .put("body", body().toString())
+            .put("status", code())
+            .put("body", body()?.string()?:"")
             .toString()
 }
