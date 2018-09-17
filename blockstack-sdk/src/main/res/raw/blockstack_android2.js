@@ -1,8 +1,15 @@
-var userSession = {};
+var userSession = {}
 
 blockstack.newUserSession=function(domainName) {
    const appConfig = new blockstack.AppConfig(domainName);
-   userSession = new blockstack.UserSession({ appConfig });
+   userSession = new blockstack.UserSession({ appConfig:appConfig, sessionStore:androidSessionStore });
+   console.log("before fetch: " + fetch)
+   var p = fetch("https://google.com")
+   console.log("after fetch: " + p)
+   p.then(function(result){
+     console.log("google + " + result);
+   })
+
    return JSON.stringify(userSession);
 }
 
@@ -39,3 +46,22 @@ blockstack.encryptContent = function(contentString, options) {
 blockstack.decryptContent = function(cipherTextString, options, binary) {
     return userSession.decryptContent(cipherTextString, JSON.parse(options))
 }
+
+var fetchPromises = {}
+fetch = function(url, options){
+  console.log("fetch 2:" + blockstack.Bluebird)
+  console.log("fetch 2:" + blockstack.Promise)
+  var promise = new blockstack.Bluebird(function(resolve, reject) {
+    console.log('fetch ' + url)
+    fetchPromises.resolve = resolve
+    android.fetch(url, JSON.stringify(options))
+  })
+  return promise
+}
+
+blockstack.fetchResolve = function(url, response) {
+  console.log('resolved ' + url)
+  fetchPromises.resolve(JSON.parse(reponse))
+}
+
+

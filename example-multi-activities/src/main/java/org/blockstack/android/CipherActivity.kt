@@ -30,8 +30,6 @@ class CipherActivity : AppCompatActivity() {
         Log.d(TAG, "json " + intent.getStringExtra("json"))
         val userData = UserData(JSONObject(intent.getStringExtra("json")))
         _blockstackSession = BlockstackSession2(this, defaultConfig)
-        _blockstackSession!!.signIn(defaultConfig.appDomain.toString(),
-                userData.appPrivateKey, userData.json.getString("identityAddress"), userData.json.getString("hubUrl"), intent.getStringExtra("json"))
     }
 
     override fun onResume() {

@@ -68,7 +68,10 @@ class AccountActivity : AppCompatActivity() {
     }
 
     private fun onSignIn() {
-        finish()
+        blockstackSession().loadUserData {
+            finish()
+        }
+
     }
 
     override fun onNewIntent(intent: Intent?) {

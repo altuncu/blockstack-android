@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         userDataTextView.text = "Signed in as ${userData.profile?.name} (${userData.decentralizedID}) with ${userData.profile?.email}"
         showUserAvatar(userData.profile?.avatarImage)
         this.userData = userData
+        navigateToCipher()
     }
 
     private fun showUserAvatar(avatarImage: String?) {

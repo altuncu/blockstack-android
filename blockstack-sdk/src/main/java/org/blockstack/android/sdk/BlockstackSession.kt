@@ -2,6 +2,7 @@ package org.blockstack.android.sdk
 
 import android.content.Context
 import android.net.Uri
+import android.preference.PreferenceManager
 import android.support.customtabs.CustomTabsIntent
 import android.util.Base64
 import android.util.Log
@@ -10,7 +11,7 @@ import org.json.JSONObject
 import java.net.URL
 import java.util.*
 
-private val AUTH_URL_STRING = "file:///android_res/raw/webview.html"
+private val AUTH_URL_STRING = "file:///android_res/raw/blockstack_android.html"
 private val HOSTED_BROWSER_URL_BASE = "https://browser.blockstack.org"
 
 /**
@@ -47,6 +48,7 @@ class BlockstackSession(context: Context,
     private val lookupProfileCallbacks = HashMap<String, ((Result<Profile>) -> Unit)>()
     private val getFileCallbacks = HashMap<String, ((Result<Any>) -> Unit)>()
     private val putFileCallbacks = HashMap<String, ((Result<String>) -> Unit)>()
+    private val sessionStore =  SessionStore(PreferenceManager.getDefaultSharedPreferences(context))
 
 
     init {
@@ -122,7 +124,7 @@ class BlockstackSession(context: Context,
         ensureLoaded()
 
         val scopesString = Scope.scopesArrayToJSONString(config.scopes)
-        val javascript = "redirectToSignIn('${config.appDomain}', '${config.redirectURI}', '${config.manifestURI}', ${scopesString})"
+        val javascript = "redirectToSignIn('${config.appDomain}', '${config.redirectPath}', '${config.manifestPath}', ${scopesString})"
         webView.evaluateJavascript(javascript, { _: String ->
             // no op
         })
@@ -419,6 +421,22 @@ class BlockstackSession(context: Context,
             session.putFileCallbacks.remove(uniqueIdentifier)
         }
 
+        @JavascriptInterface
+        fun getSessionData(): String {
+            return session.sessionStore.sessionData.json.toString()
+        }
+
+        @JavascriptInterface
+        fun setSessionData(sessionData: String): Boolean {
+            session.sessionStore.sessionData = SessionData(JSONObject(sessionData))
+            return true
+        }
+
+        @JavascriptInterface
+        fun deleteSessionData() {
+            return session.sessionStore.deleteSessionData()
+        }
+
     }
 
 }
@@ -439,14 +457,20 @@ private class BlockstackWebViewClient(val context: Context,
         Log.d(TAG, "Navigation detected in sign in webview")
         Log.d(TAG, url)
 
-        val authRequestToken = url.split(':')[1]
-        Log.d(TAG, authRequestToken)
+        val browserUrl = if (url.startsWith("https://browser.blockstack.org/auth?authRequest=")) {
+            Uri.parse(url)
+        } else {
+            val authRequestToken = url.split(':')[1]
+            Log.d(TAG, authRequestToken)
+            Uri.parse("${HOSTED_BROWSER_URL_BASE}/auth?authRequest=${authRequestToken}")
+        }
 
         val customTabsIntent = CustomTabsIntent.Builder().build()
         // on redirect load the following with
         // TODO: handle lack of custom tabs support
+
         customTabsIntent.launchUrl(context,
-                Uri.parse("${HOSTED_BROWSER_URL_BASE}/auth?authRequest=${authRequestToken}"))
+                browserUrl)
         return true
     }
 }

@@ -1,13 +1,19 @@
 package org.blockstack.android.sdk
 
 import android.content.Context
+import android.preference.PreferenceManager
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
 import com.squareup.duktape.Duktape
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import java.net.URL
 import java.util.*
+
 
 private val HOSTED_BROWSER_URL_BASE = "https://browser.blockstack.org"
 
@@ -42,18 +48,15 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
     private val lookupProfileCallbacks = HashMap<String, ((Result<Profile>) -> Unit)>()
     private val getFileCallbacks = HashMap<String, ((Result<Any>) -> Unit)>()
     private val putFileCallbacks = HashMap<String, ((Result<String>) -> Unit)>()
+    private val sessionStore = SessionStore(PreferenceManager.getDefaultSharedPreferences(context))
 
 
     private val duktape = Duktape.create()
     private var blockstack: Blockstack
 
     init {
-        duktape.set("android", JavaScriptInterface::class.java,
-                JavascriptInterfaceObject(this))
-        duktape.evaluate(context.resources.openRawResource(R.raw.blockstack2).bufferedReader().use { it.readText() },
-                "error.txt")
-        duktape.evaluate(context.resources.openRawResource(R.raw.blockstack_android).bufferedReader().use { it.readText() },
-                "error.txt")
+        duktape.set("android", JavaScriptInterface2::class.java,
+                JavascriptInterface2Object(this))
         duktape.set("console", Console::class.java, object : Console {
             override fun error(msg: String) {
                 Log.e(TAG, msg)
@@ -68,8 +71,15 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
             }
 
         })
+        duktape.evaluate(context.resources.openRawResource(R.raw.blockstack).bufferedReader().use { it.readText() },
+                "error.txt")
+        duktape.evaluate(context.resources.openRawResource(R.raw.sessionstore_android).bufferedReader().use { it.readText() },
+                "error.txt")
+        duktape.evaluate(context.resources.openRawResource(R.raw.blockstack_android2).bufferedReader().use { it.readText() },
+                "error.txt")
 
         blockstack = duktape.get("blockstack", Blockstack::class.java)
+        blockstack.newUserSession(config.appDomain.toString())
     }
 
     internal interface Console {
@@ -79,13 +89,15 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
     }
 
     internal interface Blockstack {
+        fun newUserSession(appDomain: String)
         fun isUserSignedIn(): Boolean
         fun signIn(privateAppKey: String, privateAppKey1: String, identityAddress: String, hubUrl: String, userDataString: String)
         fun signUserOut()
         fun getFile(path: String, options: String, uniqueIdentifier: String)
-        fun putFile(path: String, contentString: String?, options: String, uniqueIdentifier: String, binary: Boolean):String
+        fun putFile(path: String, contentString: String?, options: String, uniqueIdentifier: String, binary: Boolean): String
         fun encryptContent(contentString: String?, options: String, binary: Boolean): String
         fun decryptContent(cipherTextString: String?, options: String, binary: Boolean): String
+        fun fetchResolve(url:String, response:String)
     }
 
     /**
@@ -277,16 +289,21 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
         }
     }
 
-    private interface JavaScriptInterface {
+    @Suppress("unused")
+    private interface JavaScriptInterface2 {
         fun lookupProfileResult(username: String, userDataString: String)
         fun lookupProfileFailure(username: String, error: String)
         fun getFileResult(content: String, uniqueIdentifier: String, isBinary: Boolean)
         fun getFileFailure(error: String, uniqueIdentifier: String)
         fun putFileResult(readURL: String, uniqueIdentifier: String)
         fun putFileFailure(error: String, uniqueIdentifier: String)
+        fun getSessionData(): String
+        fun setSessionData(sessionData: String)
+        fun deleteSessionData()
+        fun fetch(url: String, options: String)
     }
 
-    private class JavascriptInterfaceObject(private val session: BlockstackSession2) : JavaScriptInterface {
+    private class JavascriptInterface2Object(private val session: BlockstackSession2) : JavaScriptInterface2 {
 
         @JavascriptInterface
         override fun lookupProfileResult(username: String, userDataString: String) {
@@ -332,6 +349,55 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
             session.putFileCallbacks.remove(uniqueIdentifier)
         }
 
-    }
+        @JavascriptInterface
+        override fun getSessionData(): String {
+            return session.sessionStore.sessionData.json.toString()
+        }
 
+        @JavascriptInterface
+        override fun setSessionData(sessionData: String) {
+            session.sessionStore.sessionData = SessionData(JSONObject(sessionData))
+        }
+
+        @JavascriptInterface
+        override fun deleteSessionData() {
+            return session.sessionStore.deleteSessionData()
+        }
+
+        private val httpClient = OkHttpClient()
+
+        @JavascriptInterface
+        override fun fetch(url: String, optionsString: String) {
+            val options = JSONObject(optionsString)
+
+            val builder = Request.Builder()
+                    .url(url)
+
+            if (options.has("method")) {
+                var body: RequestBody? = null
+                if (options.has("body")) {
+                    body = RequestBody.create(null, options.getString("body"))
+                }
+                builder.method(options.getString("method"), body)
+            }
+
+            if (options.has("headers")) {
+                val headers = options.getJSONObject("headers")
+                for (key in headers.keys()) {
+                    builder.header(key, headers.getString(key))
+                }
+            }
+            val response = httpClient.newCall(builder.build()).execute()
+            session.blockstack.fetchResolve(url, response.toJSONString())
+        }
+
+    }
+}
+
+fun Response.toJSONString(): String {
+    return JSONObject()
+            .put("ok", isSuccessful)
+            .put("code", code())
+            .put("body", body().toString())
+            .toString()
 }
