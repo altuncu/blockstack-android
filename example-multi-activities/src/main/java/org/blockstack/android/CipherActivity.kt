@@ -42,20 +42,22 @@ class CipherActivity : AppCompatActivity() {
     fun checkLogin() {
         if (blockstackSession().isUserSignedIn()) {
             //encryptDecryptString()
-            putFileGetFile()
-            //encryptDecryptImage()
+            //putFileGetFile()
+            encryptDecryptImage()
         } else {
             navigateToAccount()
         }
     }
 
     private fun putFileGetFile() {
+
+        // works
         blockstackSession().putFile("try.txt", "Hello from Blockstack2", PutFileOptions(encrypt = false)) {
             Log.d(TAG, "result: " + it.value)
+            // does not yet work
             blockstackSession().getFile("try.txt", GetFileOptions(false)) {
                 Log.d(TAG, "content " + it.value)
             }
-
         }
 
     }
@@ -67,6 +69,7 @@ class CipherActivity : AppCompatActivity() {
     fun encryptDecryptString() {
         val options = CryptoOptions()
         val cipherResult = blockstackSession().encryptContent("Hello Android", options)
+        Log.d(TAG, "result encryptDecryptString " + cipherResult.toString())
         if (cipherResult.hasValue) {
             val cipher = cipherResult.value!!
             blockstackSession().decryptContent(cipher.json.toString(), options) { plainContentResult ->
@@ -95,12 +98,15 @@ class CipherActivity : AppCompatActivity() {
         val bitMapData = stream.toByteArray()
 
         val options = CryptoOptions()
+
         val cipherResult = blockstackSession().encryptContent(bitMapData, options)
 
         if (cipherResult.hasValue) {
             val cipher = cipherResult.value!!
             blockstackSession().decryptContent(cipher.json.toString(), options) { plainContentResult ->
                 if (plainContentResult.hasValue) {
+                    Log.d(TAG, "decrypted" + plainContentResult.toString())
+
                     val plainContent: ByteArray = plainContentResult.value as ByteArray
                     val imageByteArray = plainContent
                     val bitmap = BitmapFactory.decodeByteArray(imageByteArray, 0, imageByteArray.size)

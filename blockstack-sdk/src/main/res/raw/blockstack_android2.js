@@ -25,7 +25,16 @@ blockstack.signUserOut = function() {
 }
 
 blockstack.getFile = function(path,options, uniqueIdentifier) {
-    return userSession.getFile(path, JSON.parse(options));
+    const opts = JSON.parse(options)
+    console.log("opts" + opts)
+    userSession.getFile(path, opts)
+      .then(function(result) {
+         console.log("get file result:" + result)
+         android.getFileResult(result, uniqueIdentifier)
+      }, function(error) {
+        console.log("get file failure:" + error)
+        android.getFileFailure(error.toString(), uniqueIdentifier)
+      })
 }
 
 blockstack.putFile = function(path, contentString, options, uniqueIdentifier, binary) {
@@ -34,17 +43,21 @@ blockstack.putFile = function(path, contentString, options, uniqueIdentifier, bi
       console.log("put result:" + result)
       android.putFileResult(result, uniqueIdentifier)
     }, function(error) {
-    console.log("put failure:" + error)
+      console.log("put failure:" + error)
       android.putFileFailure(error.toString(), uniqueIdentifier)
     })
 }
 
 
 blockstack.encryptContent = function(contentString, options) {
-    return userSession.encryptContent(contentString, JSON.parse(options))
+    console.log("encrypt content");
+    result = userSession.encryptContent(contentString, JSON.parse(options));
+    console.log("result " + result);
+    return result;
 }
 
 blockstack.decryptContent = function(cipherTextString, options, binary) {
+    console.log("decrypt content");
     return userSession.decryptContent(cipherTextString, JSON.parse(options))
 }
 
@@ -116,14 +129,22 @@ blockstack.fetchResolve = function(url, response) {
     console.log('result ' + resolved)
     fakeEventLoop()
   } catch (e) {
-  console.log("error")
-   console.log(e)
+   console.log("error:" + e.toString())
   }
   return "success"
 }
 
 blockstack.timeout = function() {
   fakeEventLoop()
+}
+
+getByte = function() {
+return 1;
+}
+
+global.generate=function (len) {
+  var res=new Uint8Array(len);for(var i=0;i<res.length;i++){res[i]=getByte();}
+  return res;
 }
 
 var fakeEventLoop;
@@ -134,7 +155,7 @@ var clearTimeout;
     var timers = [];
 
     setTimeout = function (fn, timeout) {
-        console.log("setTimeout")
+        console.log("setTimeout " + fn)
         timers.push(fn);
     };
 
@@ -144,8 +165,16 @@ var clearTimeout;
         console.log('fake eventloop, run timers');
         while (timers.length > 0) {
             var fn = timers.shift();
-            console.log('run timer');
-            fn();
+            console.log('run timer ' + fn);
+            try {
+                const Promise = blockstack.Promise;
+                const global = blockstack.global;
+                fn();
+            } catch (e) {
+                console.log("error in eventLoop " + e)
+                throw Error("failed to run " + fn, e)
+            }
+            console.log('timer len:' + timers.length)
         }
         console.log('fake eventloop exiting, no more timers');
     };

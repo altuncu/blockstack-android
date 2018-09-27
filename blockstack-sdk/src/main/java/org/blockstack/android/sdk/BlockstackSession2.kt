@@ -222,6 +222,7 @@ class BlockstackSession2(context: Context, private val config: BlockstackConfig,
 
         val result = if (isBinary) {
             val contentString = Base64.encodeToString(plainContent as ByteArray, Base64.NO_WRAP)
+            Log.d(TAG, "image " + contentString)
             blockstack.encryptContent(contentString, options.toJSON().toString(), true)
         } else {
             blockstack.encryptContent(plainContent as String, options.toJSON().toString(), false)
