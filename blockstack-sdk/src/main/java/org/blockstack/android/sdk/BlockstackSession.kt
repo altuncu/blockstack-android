@@ -10,6 +10,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import org.json.JSONArray
 import org.json.JSONObject
+import org.liquidplayer.javascript.JSContext
 import java.net.URL
 import java.util.*
 
@@ -59,18 +60,14 @@ class BlockstackSession(context: Context,
         Log.d(TAG, context.toString())
     }
 
-    private val webView = WebView(context)
+    private val webView = JSContext()
 
     init {
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.userAgentString = "blockstack-sdk"
-        webView.webViewClient = BlockstackWebViewClient(context) {
-            this.loaded = true
-            onLoadedCallback()
-        }
-        webView.addJavascriptInterface(JavascriptInterfaceObject(this), "android")
-        webView.loadUrl(AUTH_URL_STRING)
+        webView.property("android", JavascriptInterfaceObject(this))
+        webView.evaluateScript(context.resources.openRawResource(R.raw.api).bufferedReader().use { it.readText() })
+        this.loaded = true
+        onLoadedCallback()
+
     }
 
 
@@ -92,13 +89,13 @@ class BlockstackSession(context: Context,
         } else {
             "makeAuthResponse('${privateKey}', null)"
         }
-        webView.evaluateJavascript(javascript, { authResponse ->
-            if (authResponse != null && !"null".equals(authResponse)) {
-                callback(Result(authResponse.removeSurrounding("\"")))
-            } else {
-                callback(Result(null, "no auth response"))
-            }
-        })
+        val authResponse = webView.evaluateScript(javascript)
+
+        if (authResponse != null && !authResponse.isNull) {
+            callback(Result(authResponse.toString().removeSurrounding("\"")))
+        } else {
+            callback(Result(null, "no auth response"))
+        }
     }
 
     /**
@@ -116,9 +113,7 @@ class BlockstackSession(context: Context,
         ensureLoaded()
 
         val javascript = "handlePendingSignIn('$nameLookupUrl', '${authResponse}')"
-        webView.evaluateJavascript(javascript, { _: String ->
-
-        })
+        webView.evaluateScript(javascript)
     }
 
     /**
@@ -137,9 +132,7 @@ class BlockstackSession(context: Context,
 
         val scopesString = Scope.scopesArrayToJSONString(config.scopes)
         val javascript = "redirectToSignIn('${config.appDomain}', '${config.redirectURI}', '${config.manifestURI}', ${scopesString})"
-        webView.evaluateJavascript(javascript, { _: String ->
-            // no op
-        })
+        webView.evaluateScript(javascript)
     }
 
     /**
@@ -153,15 +146,15 @@ class BlockstackSession(context: Context,
 
         ensureLoaded()
 
-        webView.evaluateJavascript(javascript, { result ->
-            if (result != null && !"null".equals(result)) {
-                val newUserData = JSONObject(result)
-                userData = newUserData
-                callback(UserData(newUserData))
-            } else {
-                callback(null)
-            }
-        })
+        val result = webView.evaluateScript(javascript)
+        if (result != null && !result.isNull) {
+            val newUserData = JSONObject(result.toJSON())
+            userData = newUserData
+            callback(UserData(newUserData))
+        } else {
+            callback(null)
+        }
+
     }
 
     /**
@@ -175,9 +168,8 @@ class BlockstackSession(context: Context,
 
         ensureLoaded()
 
-        webView.evaluateJavascript(javascript, {
-            callback(it == "true")
-        })
+        val it = webView.evaluateScript(javascript)
+        callback(it.toString() == "true")
     }
 
     /**
@@ -191,9 +183,8 @@ class BlockstackSession(context: Context,
 
         ensureLoaded()
 
-        webView.evaluateJavascript(javascript, {
-            callback()
-        })
+        webView.evaluateScript(javascript)
+        callback()
     }
 
     /**
@@ -211,9 +202,7 @@ class BlockstackSession(context: Context,
         }
         ensureLoaded()
         lookupProfileCallbacks.put(username, callback)
-        webView.evaluateJavascript(javascript, { _ ->
-            // no op, lookupProfileCallback for username will be called
-        })
+        webView.evaluateScript(javascript)
     }
 
     /**
@@ -233,9 +222,7 @@ class BlockstackSession(context: Context,
         }
         validateProofsCallback = callback
 
-        webView.evaluateJavascript(javascript, { _ ->
-            // no op, validateProofsCallback will be called
-        })
+        webView.evaluateScript(javascript)
     }
 
     /* Public storage methods */
@@ -256,9 +243,7 @@ class BlockstackSession(context: Context,
 
         val uniqueIdentifier = addGetFileCallback(callback)
         val javascript = "getFile('${path}', ${options}, '${uniqueIdentifier}')"
-        webView.evaluateJavascript(javascript, { _: String ->
-            // no op, getFileCallback for uuid will be called
-        })
+        webView.evaluateScript(javascript)
     }
 
     /**
@@ -288,14 +273,10 @@ class BlockstackSession(context: Context,
         if (isBinary) {
             val contentString = Base64.encodeToString(content as ByteArray, Base64.NO_WRAP)
             val javascript = "putFile('${path}', '${contentString}', ${options}, '${uniqueIdentifier}', true)"
-            webView.evaluateJavascript(javascript, { _: String ->
-                // no op
-            })
+            webView.evaluateScript(javascript)
         } else {
             val javascript = "putFile('${path}', '${content}', ${options}, '${uniqueIdentifier}', false)"
-            webView.evaluateJavascript(javascript, { _: String ->
-                // no op
-            })
+            webView.evaluateScript(javascript)
         }
 
     }
@@ -324,13 +305,12 @@ class BlockstackSession(context: Context,
             "encryptContent('$plainContent', $options, false)"
         }
 
-        webView.evaluateJavascript(javascript) { result ->
-            if (result != null && !"null".equals(result)) {
-                val cipherObject = JSONObject(result)
-                callback(Result(CipherObject(cipherObject)))
-            } else {
-                callback(Result(null, "failed to encrypt"))
-            }
+        val result = webView.evaluateScript(javascript)
+        if (result != null && !result.isNull) {
+            val cipherObject = JSONObject(result.toJSON())
+            callback(Result(CipherObject(cipherObject)))
+        } else {
+            callback(Result(null, "failed to encrypt"))
         }
     }
 
@@ -362,18 +342,19 @@ class BlockstackSession(context: Context,
         }
 
 
-        webView.evaluateJavascript(javascript) { plainContent ->
-            if (plainContent != null && !"null".equals(plainContent)) {
+        val plainContent = webView.evaluateScript(javascript)
 
-                if (wasString) {
-                    callback(Result(plainContent.removeSurrounding("\"")))
-                } else {
-                    callback(Result(Base64.decode(plainContent, Base64.DEFAULT)))
-                }
+        if (plainContent != null && !plainContent.isNull) {
+
+            if (wasString) {
+                callback(Result(plainContent.toString().removeSurrounding("\"")))
             } else {
-                callback(Result(null, "failed to decrypt"))
+                callback(Result(Base64.decode(plainContent.toString(), Base64.DEFAULT)))
             }
+        } else {
+            callback(Result(null, "failed to decrypt"))
         }
+
     }
 
     /**
@@ -386,9 +367,7 @@ class BlockstackSession(context: Context,
     fun getAppBucketUrl(gaiaHubUrl: String, appPrivateKey: String, callback: (Result<String>) -> Unit) {
         val javascript = "getAppBucketUrl('$gaiaHubUrl', '$appPrivateKey')"
         getAppBucketUrlCallback = callback
-        webView.evaluateJavascript(javascript) { _ ->
-            // no op, getAppBucketUrlCallback will be called
-        }
+        webView.evaluateScript(javascript)
     }
 
     /**
@@ -407,9 +386,7 @@ class BlockstackSession(context: Context,
             "getUserAppFileUrl('$path', '$username', '$appOrigin', '$zoneFileLookupURL')"
         }
         getUserAppFileUrlCallback = callback
-        webView.evaluateJavascript(javascript) { _ ->
-            // no op, getUserAppFileUrlCallback will be called
-        }
+        webView.evaluateScript(javascript)
     }
 
     private fun addGetFileCallback(callback: (Result<Any>) -> Unit): String {

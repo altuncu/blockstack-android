@@ -37,6 +37,7 @@ dokka {
 }
 
 dependencies {
+    implementation 'com.github.LiquidPlayer:LiquidCore:0.5.0'
     implementation 'com.android.support:customtabs:27.1.1'
     implementation 'com.android.support:appcompat-v7:27.1.1'
     testImplementation 'junit:junit:4.12'
