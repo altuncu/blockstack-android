@@ -5,6 +5,7 @@ import android.preference.PreferenceManager
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
+import com.eclipsesource.v8.NodeJS
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -16,6 +17,7 @@ import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.async
 import org.jetbrains.anko.coroutines.experimental.bg
 import org.json.JSONObject
+import java.io.File
 import java.util.*
 
 
@@ -61,7 +63,9 @@ class BlockstackSession2(context:Context, private val config: BlockstackConfig,
     private val v8: V8
     init {
 
-        v8 = V8.createV8Runtime()
+        val nodeJS = NodeJS.createNodeJS();
+        v8 = nodeJS.runtime
+        nodeJS.require(File("android-resources:"))
         v8.executeVoidScript(context.resources.openRawResource(R.raw.blockstack).bufferedReader().use { it.readText() });
         v8.executeVoidScript(context.resources.openRawResource(R.raw.sessionstore_android).bufferedReader().use { it.readText() });
         v8.executeVoidScript(context.resources.openRawResource(R.raw.blockstack_android2).bufferedReader().use { it.readText() });
@@ -91,6 +95,13 @@ class BlockstackSession2(context:Context, private val config: BlockstackConfig,
         v8.executeVoidScript("var appConfig = new blockstack.AppConfig('${config.appDomain}');var userSession = new blockstack.UserSession({appConfig:appConfig, sessionStore:androidSessionStore});")
         userSession = v8.getObject("userSession")
         loaded = true
+        async(UI) {
+            bg {
+                while (nodeJS.isRunning) {
+                    nodeJS.handleMessage()
+                }
+            }
+        }
     }
 
     internal interface Console {
