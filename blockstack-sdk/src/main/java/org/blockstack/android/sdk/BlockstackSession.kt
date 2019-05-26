@@ -122,7 +122,7 @@ class BlockstackSession(context: Context? = null, private val config: Blockstack
         v8userSession = v8.getObject("userSession")
 
         network = Network(v8networkAndroid, v8)
-
+doNotVerifyAppLinkConfiguration = true
         // check verified app link verification once
         if (context != null &&!doNotVerifyAppLinkConfiguration) {
             executor.onNetworkThread {
