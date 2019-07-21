@@ -15,6 +15,7 @@ import java.net.URL
 public class GetFileOptions(val decrypt: Boolean = true,
                             val username: String? = null,
                             val app: String? = null,
+                            val verify: Boolean = false,
                             val zoneFileLookupURL: URL? = null) {
 
     /**
@@ -25,6 +26,7 @@ public class GetFileOptions(val decrypt: Boolean = true,
         optionsObject.put("decrypt", decrypt)
         optionsObject.put("username", if (username.isNullOrBlank()) JSONObject.NULL else username)
         optionsObject.put("app", if (app.isNullOrBlank()) JSONObject.NULL else app)
+        optionsObject.put("verify", verify)
         optionsObject.put("zoneFileLookupURL", if (zoneFileLookupURL == null) JSONObject.NULL else zoneFileLookupURL)
         return optionsObject
     }
